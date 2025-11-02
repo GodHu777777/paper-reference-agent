@@ -19,8 +19,17 @@ class BaseSearcher:
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({'User-Agent': config.USER_AGENT})
-        if config.PROXIES:
-            self.session.proxies.update(config.PROXIES)
+        # 只在代理配置不为空且是有效字典时使用代理
+        if config.PROXIES and isinstance(config.PROXIES, dict) and config.PROXIES:
+            try:
+                # 检查代理配置是否有效（有值且不是空字符串）
+                if any(v for v in config.PROXIES.values() if v):
+                    self.session.proxies.update(config.PROXIES)
+            except Exception as e:
+                if config.DEBUG:
+                    print(f"  [DEBUG] 设置代理失败: {e}，将不使用代理")
+                # 代理设置失败时，清空代理配置
+                self.session.proxies = {}
     
     def search(self, query: str) -> Optional[Dict[str, Any]]:
         """

@@ -17,8 +17,13 @@ class NeurIPSExtractor:
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({'User-Agent': config.USER_AGENT})
-        if config.PROXIES:
-            self.session.proxies.update(config.PROXIES)
+        # 只在代理配置不为空且是有效字典时使用代理
+        if config.PROXIES and isinstance(config.PROXIES, dict) and config.PROXIES:
+            try:
+                if any(v for v in config.PROXIES.values() if v):
+                    self.session.proxies.update(config.PROXIES)
+            except Exception:
+                self.session.proxies = {}
         
         # 延迟导入 LLM 提取器
         self._llm_extractor = None

@@ -42,8 +42,13 @@ class LLMExtractor:
     def __init__(self):
         # API 请求用的 session（用于调用 LLM API）
         self.api_session = requests.Session()
-        if llm_config.PROXIES:
-            self.api_session.proxies.update(llm_config.PROXIES)
+        # 只在 LLM 代理配置不为空时使用
+        if llm_config.PROXIES and isinstance(llm_config.PROXIES, dict) and llm_config.PROXIES:
+            try:
+                if any(v for v in llm_config.PROXIES.values() if v):
+                    self.api_session.proxies.update(llm_config.PROXIES)
+            except Exception:
+                self.api_session.proxies = {}
         
         # 设置 API Key（如果有）
         if llm_config.API_KEY:
@@ -66,9 +71,13 @@ class LLMExtractor:
                     'desktop': True
                 }
             )
-            # 设置代理（如果配置了）
-            if config.PROXIES and any(config.PROXIES.values()):
-                self.web_session.proxies.update(config.PROXIES)
+            # 设置代理（如果配置了且有效）
+            if config.PROXIES and isinstance(config.PROXIES, dict) and config.PROXIES:
+                try:
+                    if any(v for v in config.PROXIES.values() if v):
+                        self.web_session.proxies.update(config.PROXIES)
+                except Exception:
+                    self.web_session.proxies = {}
         else:
             # 如果没有 cloudscraper，使用普通 requests
             self.web_session = requests.Session()
@@ -85,9 +94,13 @@ class LLMExtractor:
                 'Sec-Fetch-Site': 'none',
                 'Cache-Control': 'max-age=0',
             })
-            # 只有当 PROXIES 不为空时才设置代理
-            if config.PROXIES and any(config.PROXIES.values()):
-                self.web_session.proxies.update(config.PROXIES)
+            # 只有当 PROXIES 不为空且有效时才设置代理
+            if config.PROXIES and isinstance(config.PROXIES, dict) and config.PROXIES:
+                try:
+                    if any(v for v in config.PROXIES.values() if v):
+                        self.web_session.proxies.update(config.PROXIES)
+                except Exception:
+                    self.web_session.proxies = {}
         
         # Selenium WebDriver（延迟初始化）
         self.driver = None
@@ -640,11 +653,14 @@ class LLMExtractor:
                 options.add_experimental_option("excludeSwitches", ["enable-automation"])
                 options.add_experimental_option('useAutomationExtension', False)
                 
-                # 设置代理（如果配置了）
-                if config.PROXIES and any(config.PROXIES.values()):
-                    proxy_url = config.PROXIES.get('https') or config.PROXIES.get('http')
-                    if proxy_url:
-                        options.add_argument(f'--proxy-server={proxy_url}')
+                # 设置代理（如果配置了且有效）
+                if config.PROXIES and isinstance(config.PROXIES, dict) and config.PROXIES:
+                    try:
+                        proxy_url = config.PROXIES.get('https') or config.PROXIES.get('http')
+                        if proxy_url and proxy_url.strip():
+                            options.add_argument(f'--proxy-server={proxy_url}')
+                    except Exception:
+                        pass  # 代理设置失败，继续执行
                 
                 # 使用 webdriver_manager 自动管理驱动
                 try:
@@ -659,17 +675,23 @@ class LLMExtractor:
                 if config.SELENIUM_HEADLESS:
                     options.add_argument('--headless')
                 
-                # 设置代理（如果配置了）
-                if config.PROXIES and any(config.PROXIES.values()):
-                    proxy_url = config.PROXIES.get('https') or config.PROXIES.get('http')
-                    if proxy_url:
-                        # Firefox 代理设置
-                        proxy_host, proxy_port = proxy_url.replace('http://', '').split(':')
-                        options.set_preference("network.proxy.type", 1)
-                        options.set_preference("network.proxy.http", proxy_host)
-                        options.set_preference("network.proxy.http_port", int(proxy_port))
-                        options.set_preference("network.proxy.ssl", proxy_host)
-                        options.set_preference("network.proxy.ssl_port", int(proxy_port))
+                # 设置代理（如果配置了且有效）
+                if config.PROXIES and isinstance(config.PROXIES, dict) and config.PROXIES:
+                    try:
+                        proxy_url = config.PROXIES.get('https') or config.PROXIES.get('http')
+                        if proxy_url and proxy_url.strip():
+                            from urllib.parse import urlparse
+                            parsed = urlparse(proxy_url)
+                            proxy_host = parsed.hostname
+                            proxy_port = parsed.port or (8080 if parsed.scheme == 'http' else 443)
+                            if proxy_host:
+                                options.set_preference("network.proxy.type", 1)
+                                options.set_preference("network.proxy.http", proxy_host)
+                                options.set_preference("network.proxy.http_port", proxy_port)
+                                options.set_preference("network.proxy.ssl", proxy_host)
+                                options.set_preference("network.proxy.ssl_port", proxy_port)
+                    except Exception:
+                        pass  # 代理设置失败，继续执行
                 
                 try:
                     service = FirefoxService(GeckoDriverManager().install())

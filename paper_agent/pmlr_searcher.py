@@ -24,8 +24,13 @@ class PMLRSearcher:
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
         })
-        if config.PROXIES:
-            self.session.proxies.update(config.PROXIES)
+        # 只在代理配置不为空且是有效字典时使用代理
+        if config.PROXIES and isinstance(config.PROXIES, dict) and config.PROXIES:
+            try:
+                if any(v for v in config.PROXIES.values() if v):
+                    self.session.proxies.update(config.PROXIES)
+            except Exception:
+                self.session.proxies = {}
         
         self.base_url = "https://proceedings.mlr.press"
         self.search_url = "https://proceedings.mlr.press"

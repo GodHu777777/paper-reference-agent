@@ -20,10 +20,22 @@ SEMANTIC_SCHOLAR_API_KEY = os.getenv("SEMANTIC_SCHOLAR_API_KEY", "")
 REQUEST_TIMEOUT = 30
 
 # 代理设置（如果需要）
-PROXIES = {
-    "http": "http://127.0.0.1:65008",
-    "https": "http://127.0.0.1:65008",
-}
+# 通过环境变量 PROXIES 设置代理，格式: "http://127.0.0.1:65008"
+# 如果不设置或设置为空字符串，则不使用代理（适合服务器部署）
+PROXIES_ENV = os.getenv("PROXIES", "").strip()
+if PROXIES_ENV and PROXIES_ENV.lower() not in ("none", "false", ""):
+    # 如果环境变量设置了代理，使用它
+    if "://" in PROXIES_ENV:
+        proxy_url = PROXIES_ENV
+        PROXIES = {
+            "http": proxy_url,
+            "https": proxy_url,
+        }
+    else:
+        PROXIES = {}
+else:
+    # 默认不使用代理（适合服务器直接访问互联网的情况）
+    PROXIES = {}
 
 # User-Agent
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
