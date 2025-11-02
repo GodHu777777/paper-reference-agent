@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能文献页码搜索 Agent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .search-form {
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        .search-input:focus {
+            border-color: #667eea;
+        }
+        
+        .search-btn {
+            width: 100%;
+            padding: 15px;
+            margin-top: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .search-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .search-btn:active {
+            transform: translateY(0);
+        }
+        
+        .search-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .result.show {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .result-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .result-label {
+            font-weight: bold;
+            color: #667eea;
+            margin-right: 10px;
+        }
+        
+        .pages {
+            font-size: 18px;
+            font-weight: bold;
+            color: #28a745;
+        }
+        
+        .error {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8d7da;
+            color: #721c24;
+            border-radius: 8px;
+        }
+        
+        .citation-format {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .citation-format-title {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .citation-text {
+            font-family: monospace;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .batch-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #e0e0e0;
+        }
+        
+        .batch-textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 15px;
+            font-size: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            resize: vertical;
+            font-family: monospace;
+        }
+        
+        .stats {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e7f3ff;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 智能文献页码搜索 Agent</h1>
+            <p>准确获取论文页码信息和引用格式，适合西安电子科技大学引用格式</p>
+        </div>
+        
+        <div class="content">
+            <!-- 单篇搜索表单 -->
+            <form method="POST" action="/" class="search-form">
+                <div class="form-group">
+                    <label for="query">论文标题</label>
+                    <input type="text" id="query" name="query" class="search-input" 
+                           placeholder="输入论文标题，例如: Attention is All You Need" 
+                           value="{{ request.form.get('query', '') if request.form else '' }}"
+                           required>
+                </div>
+                <button type="submit" class="search-btn">搜索</button>
+            </form>
+            
+            <!-- 错误提示 -->
+            {% if error %}
+            <div class="error">
+                <strong>错误:</strong> {{ error }}
+            </div>
+            {% endif %}
+            
+            <!-- 搜索结果 -->
+            {% if result %}
+            <div class="result show">
+                <div class="result-item">
+                    <span class="result-label">标题:</span>{{ result.title }}
+                </div>
+                
+                {% if result.authors %}
+                <div class="result-item">
+                    <span class="result-label">作者:</span>{{ result.authors | join(', ') }}
+                </div>
+                {% endif %}
+                
+                {% if result.year %}
+                <div class="result-item">
+                    <span class="result-label">年份:</span>{{ result.year }}
+                </div>
+                {% endif %}
+                
+                {% if result.venue %}
+                <div class="result-item">
+                    <span class="result-label">会议/期刊:</span>{{ result.venue }}
+                </div>
+                {% endif %}
+                
+                {% if result.pages %}
+                <div class="result-item">
+                    <span class="result-label">页码:</span><span class="pages">{{ result.pages }}</span>
+                </div>
+                {% else %}
+                <div class="result-item">
+                    <span class="result-label">页码:</span><span style="color: #ffc107;">未找到</span>
+                </div>
+                {% endif %}
+                
+                {% if result.doi %}
+                <div class="result-item">
+                    <span class="result-label">DOI:</span>{{ result.doi }}
+                </div>
+                {% endif %}
+                
+                {% if result.url %}
+                <div class="result-item">
+                    <span class="result-label">URL:</span><a href="{{ result.url }}" target="_blank">{{ result.url }}</a>
+                </div>
+                {% endif %}
+                
+                {% if result.citation %}
+                <div class="citation-format">
+                    <div class="citation-format-title">引用格式:</div>
+                    <div class="citation-text">{{ result.citation }}</div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <!-- 批量搜索 -->
+            <div class="batch-section">
+                <h3 style="margin-bottom: 15px;">批量查询</h3>
+                <form method="POST" action="/batch">
+                    <div class="form-group">
+                        <label for="batchQueries">论文标题列表（每行一个）</label>
+                        <textarea id="batchQueries" name="queries" class="batch-textarea" 
+                                  placeholder="每行输入一个论文标题&#10;例如：&#10;Attention is All You Need&#10;BERT: Pre-training of Deep Bidirectional Transformers&#10;GPT-3: Language Models are Few-Shot Learners"></textarea>
+                    </div>
+                    <button type="submit" class="search-btn">批量搜索</button>
+                </form>
+                
+                {% if batch_results %}
+                <div class="result show" style="margin-top: 20px;">
+                    {% for item in batch_results %}
+                    <div class="result-item" style="margin-bottom: 20px;">
+                        <div style="font-weight: bold; color: #667eea; margin-bottom: 10px;">查询: {{ item.query }}</div>
+                        {% if item.result %}
+                            <div><span class="result-label">标题:</span>{{ item.result.title }}</div>
+                            {% if item.result.pages %}
+                            <div><span class="result-label">页码:</span><span class="pages">{{ item.result.pages }}</span></div>
+                            {% endif %}
+                            {% if item.result.citation %}
+                            <div class="citation-format" style="margin-top: 10px;">
+                                <div class="citation-format-title">引用格式:</div>
+                                <div class="citation-text">{{ item.result.citation }}</div>
+                            </div>
+                            {% endif %}
+                        {% else %}
+                            <div><span style="color: #856404;">未找到</span></div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    
+                    <div class="stats">
+                        统计: 总计 {{ batch_results | length }} 篇，找到 {{ batch_results | selectattr('result') | list | length }} 篇
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
