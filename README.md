@@ -10,7 +10,7 @@
 
 ### Web
 
-![](./images.png/image.png)
+![](./images.png/web.png)
 
 ## 功能特性
 
